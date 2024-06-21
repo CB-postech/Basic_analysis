@@ -51,3 +51,63 @@ corrected_deg(DEG_df, celltype_color)
 ```
 
 ![image](https://github.com/CB-postech/Basic_analysis/assets/98519284/491f23ff-c5db-44fc-be7e-336f960673de)
+
+And the following is the python transcript.
+
+```py
+def corrected_deg(
+    deg_df: pd.DataFrame, celltype_color: list[str] | sns.palettes._ColorPalette
+) -> plt.Figure:
+    # modeling linear regression
+    X = deg_df[["num_cell"]].values.reshape(-1, 1)
+    y = deg_df["num_deg"].values
+    model = sklearn.linear_model.LinearRegression().fit(X, y)
+
+    # calculating residuals for each cell type
+    deg_df["residuals"] = y - model.predict(X)
+
+    # ranking cell type
+    deg_df = deg_df.sort_values(by="residuals", ascending=False).reset_index(drop=True)
+    deg_df["rank"] = deg_df.index + 1
+
+    # plotting rankplot
+    fig = plt.figure()
+
+    sc = sns.scatterplot(
+        data=deg_df,
+        x="rank",
+        y="residuals",
+        hue=range(len(deg_df)),
+        palette=celltype_color,
+        s=100,
+    )
+
+    for _, row in deg_df.iterrows():
+        plt.text(
+            row["rank"],
+            row["residuals"],
+            row["celltype"],
+            verticalalignment="bottom",
+            horizontalalignment="left",
+            fontsize=8,
+            color="black",
+        )
+
+    # Add horizontal line at y=0
+    plt.axhline(y=0, linestyle="--", color="black")
+    plt.xlabel("Rank")
+    plt.ylabel("Corrected Number of DEGs")
+    plt.legend(
+        sc.get_legend_handles_labels()[0],
+        {i: i for i in deg_df["celltype"]},
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+        title="celltype",
+    )
+
+    plt.grid(False)
+
+    return fig
+```
+
+![py_pbmc3k](assets/py_pbmc3k.png)
