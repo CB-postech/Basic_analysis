@@ -200,7 +200,7 @@ plot_OddRatio_text_on_left <- function(order, highlihgt, highlight_cols, basal_r
 
 
 get_OddRatio_plot <- function(so, bin_regulon, condition_name, cols_highlight, percentage_cutoff, regulon_modules, save_path) {
-    e = 10^-15 # to avoid log10(0)
+    e = 10^-8 # to avoid log10(0)
     Idents(so) = so[[condition_name]][[1]]
     top5_genes = list()
     
