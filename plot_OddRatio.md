@@ -36,7 +36,7 @@ Requirement 4. Color vector to highlight the regulon module
 3. plot_OddRatio_text_on_left : same as 2, but text on left side
 4. get_OddRatio_plot: A utility function to generate plots. It returns top 5 odd ratio TFs
 
-### Actual Script
+### Example Script
 ```R
 library(Seurat)
 library(magrittr)
