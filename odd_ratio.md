@@ -1,3 +1,10 @@
+## Plot OddRatio with fdr-corrected fisher exact test p-value
+### Motivation
+If binarized regulon matrix is given, how to quantify there enrichment in certain condition?
+### Method
+1. Calculate OddRatio
+![Uploading image.png…]()
+
 ### Requirements
 Requirement 1. Binarized Regulon Matrix (row : cell, column : regulon). Output of pySCENIC
 
@@ -12,7 +19,7 @@ Requirement 4. Color vector to highlight the regulon module
 
 2. plot_OddRatio_text_on_right : plot odd ratio data frame
 
-3. plot_OddRatio_text_on_left : same as 2, but 
+3. plot_OddRatio_text_on_left : same as 2, but text on left
 
 ```R
 library(Seurat)
@@ -74,10 +81,13 @@ get_OddRatio <- function(bin_regulon, control_cells, experimental_cells, percent
     regulon_test_results <- data.frame(matrix(ncol = 5, nrow = ncol(bin_regulon)))
     colnames(regulon_test_results) <- c('p-value', 'adjusted_p-value', 'odd_ratio', 'sum', 'activated_percentage')
     rownames(regulon_test_results) <- colnames(bin_regulon)
+
     for (regulon in colnames(bin_regulon)) {            
         sum_control <- sum(bin_regulon[control_cells, regulon], na.rm = TRUE)
+        # it save the number of regulon positive control cells
         sum_experimental <- sum(bin_regulon[experimental_cells, regulon], na.rm = TRUE)
-
+        # it save the number of regulon positive experimental cells
+        
         regulon_positive = rownames(bin_regulon)[bin_regulon[, regulon] > 0]
         regulon_negative = rownames(bin_regulon)[bin_regulon[, regulon] == 0]
 
@@ -187,5 +197,4 @@ plot_OddRatio_text_on_left <- function(order, highlihgt, highlight_cols, basal_r
     return(p)
 }
 ```
-
-![image](https://github.com/CB-postech/Basic_analysis/assets/98519284/491f23ff-c5db-44fc-be7e-336f960673de)
+![image](https://github.com/user-attachments/assets/e1186267-25a5-4607-be4b-68baebc7b517)
