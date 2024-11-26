@@ -121,6 +121,7 @@ get_OddRatio <- function(bin_regulon, control_cells, experimental_cells, percent
     order[order$'-log10(adj.p-value)' > 300, '-log10(adj.p-value)'] = 300 # set maximum -log10(adj.p-value) as 300
     order$size = order$'-log10(adj.p-value)' # size of dot is -log10(adj.p-value)
     order[order$'odd_ratio' == Inf, 'odd_ratio'] = 10^8 # set maximum odd ratio as 10^8
+    e = 10^-8 # to avoid log10(0)
     order$log_ratio = log10(order$odd_ratio + e) # log10 of odd ratio
 
     return(order)
@@ -200,7 +201,6 @@ plot_OddRatio_text_on_left <- function(order, highlihgt, highlight_cols, basal_r
 
 
 get_OddRatio_plot <- function(so, bin_regulon, condition_name, cols_highlight, percentage_cutoff, regulon_modules, save_path) {
-    e = 10^-8 # to avoid log10(0)
     Idents(so) = so[[condition_name]][[1]]
     top5_genes = list()
     
