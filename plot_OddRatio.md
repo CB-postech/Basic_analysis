@@ -32,8 +32,8 @@ Requirement 4. Color vector to highlight the regulon module
 
 ### There are 4 functions in this script
 1. get_OddRatio : Calculate OddRatio, p-value, then return them as DataFrame
-2. plot_OddRatio_text_on_right : plot OddRatio DataFrame
-3. plot_OddRatio_text_on_left : same as 2, but text on left
+2. plot_OddRatio_text_on_right : plot OddRatio DataFrame. Text on right side
+3. plot_OddRatio_text_on_left : same as 2, but text on left side
 4. get_OddRatio_plot: A utility function to generate plots. It returns top 5 odd ratio TFs
 
 ### Actual Script
