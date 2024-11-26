@@ -1,66 +1,74 @@
+### Requirements
+Requirement 1. Binarized Regulon Matrix (row : cell, column : regulon). Output of pySCENIC
 
+Requirement 2. Seurat object. It should have Condition (or Lineage, Lineage&Exercise, ... something like that) in metadata
+
+Reguirement 3. Regulon Module. Output of heirchical clustering of pHeatmap. row : regulon name, column : module, elements : module name
+
+Requirement 4. Color vector to highlight the regulon module
+
+### There are 3 functions in this script
+1. get_OddRatio : return odd ratio data frame (contain odd ratio & fisher-exact test p-value (fdr corrected))
+
+2. plot_OddRatio_text_on_right : plot odd ratio data frame
+
+3. plot_OddRatio_text_on_left : same as 2, but 
 
 ```R
 library(Seurat)
 library(magrittr)
 library(ggplot2)
-library(ComplexHeatmap)
+library(data.table)
 
 save_path <- '/home/sjcho/projects/lung_exercise/24_06_07_after_delete_con4_ex4/1.transcriptomic_difference/1.5.scenic/1.5.6.OddRatio_binarized_regulon/'
 
 ### load datas
-so <- readRDS('/home/sjcho/projects/lung_exercise/24_06_07_after_delete_con4_ex4/wo_erythrocyte/wo_erythrocyte.rds')
-
-pyscenic_path= '/home/sjcho/projects/lung_exercise/24_06_07_after_delete_con4_ex4/1.transcriptomic_difference/1.5.scenic/20240828_wo_con4_ex4_wo_erythrocyte/pyscenic_output.csv'
+# Requirement 1. Binarized Regulon Matrix
+pyscenic_path = '/home/sjcho/projects/lung_exercise/24_06_07_after_delete_con4_ex4/1.transcriptomic_difference/1.5.scenic/20240828_wo_con4_ex4_wo_erythrocyte/pyscenic_output.csv'
 bin_regulon <- as.data.frame(fread(pyscenic_path))
 rownames(bin_regulon) <- bin_regulon[, 1] # convert 1st column to rownames
 bin_regulon <- bin_regulon[, -1]
 
+# Requirement 2. Seurat object
+so <- readRDS('/home/sjcho/projects/lung_exercise/24_06_07_after_delete_con4_ex4/wo_erythrocyte/wo_erythrocyte.rds')
+
+# Requirement 3. Regulon Module
+load('/home/sjcho/projects/lung_exercise/24_06_07_after_delete_con4_ex4/1.transcriptomic_difference/1.5.scenic/1.5.5.scenic_clean_w_function/TF_annotations.Rdata')
+# save as regulon_modules
+
+# Requirement 4. Color vector
+cols_highlight = c('Exercise-Immune' = '#00008B', 'Exercise-non-Immune' = '#8B0000', 'Control-Epithelial' = '#228B22')
+
 ### parameter setting
-# so[['lineage_exercise']] = paste0(so[['lineage']][[1]], '_', so[['Condition']][[1]])
-condition_name = 'Condition' # or 'lineage'
+condition_name = 'Condition' # or 'lineage' ...
 
-# cols_condition = c('Lineage-Endothelial' = '#2980b9', 'Lineage-Stromal' = '#50c444', 'Lineage-Immune' = '#f1c40f', 'Lineage-Epithelial' = 'red')
-cols_condition = c('Exercise-Immune' = '#00008B', 'Exercise-non-Immune' = '#8B0000', 'Control-Epithelial' = '#228B22')
-# highlight other lineage
-
-# only use when regulon is activated then 0% of total cells
-# so... default : use all the cells!
-percentage_cutoff = 0
+percentage_cutoff = 0 # only use when regulon is activated then 0% of total cells, so... by default, use all the regulons!
 top5_genes = list()
 
 e = 10^-15 # to avoid log10(0)
-for (condition in names(condition_cells_list)) {
-    experimental_cells = condition_cells_list[[condition]]
+Idents(so) = so[[condition_name]][[1]]
+for (condition in levels(Idents(so))) {
+    experimental_cells = WhichCells(so, ident = condition)
     control_cells = setdiff(Cells(so), experimental_cells)
 
-    # fisher_pvalue = get_fisher_test(control_cells, experimental_cells, bin_regulon)
-    order <- get_odd_ratio(bin_regulon, control_cells, experimental_cells, percentage_cutoff)
-    order$'adjusted_p-value' =  p.adjust(order$'p-value', method='fdr') # fdr correction
-    order$'-log10(adj.p-value)' = -log10(order$'adjusted_p-value')
-    order[order$'-log10(adj.p-value)' > 300, '-log10(adj.p-value)'] = 300 # set maximum -log10(adj.p-value) as 300
-    order$size = order$'-log10(adj.p-value)' # size of dot is -log10(adj.p-value)
+    order <- get_OddRatio(bin_regulon, control_cells, experimental_cells, percentage_cutoff, regulon_modules)
 
-    order[order$'odd_ratio' == Inf, 'odd_ratio'] = 10^8 # set maximum odd ratio as 10^8
-    order$log_ratio = log10(order$odd_ratio + e) # log10 of odd ratio
-
-    basal_ratio = length(experimental_cells)/sum(length(control_cells), length(experimental_cells)) # its means ratio of experimental cells over total cells
+    basal_ratio = length(experimental_cells)/length(Cells(so)) # its means ratio of experimental cells over total cells
     ## plot them separately
-    for (highlihgt in names(cols_condition)) {
-        p <- plot_order_text_on_right(order, highlihgt, cols_condition, basal_ratio)
-        p <- p + ylim(min(order$log_ratio) * 1.15, max(order$log_ratio) * 1.15) # to visualize better
+    for (highlihgt in names(cols_highlight)) {
+        p <- plot_OddRatio_text_on_right(order, highlihgt, cols_highlight, basal_ratio)
         ggsave(p, file = paste0(save_path, condition, '_RightText_', highlihgt, '.png'), width = 10, height = 5)
 
-        p <- plot_order_text_on_left(order, highlihgt, cols_condition, basal_ratio)
-        p <- p + ylim(min(order$log_ratio) * 1.15, max(order$log_ratio) * 1.15) # to visualize better
+        p <- plot_OddRatio_text_on_left(order, highlihgt, cols_highlight, basal_ratio)
         ggsave(p, file = paste0(save_path, condition, '_LeftText_', highlihgt, '.png'), width = 10, height = 5)
-        }
-    top5_genes[[condition]] = rownames(order %>% tail(n = 5))
+    }
+    
+    top5_genes[[condition]] = rownames(order %>% head(n = 5))
 }
 ```
 
 ```R
-get_odd_ratio <- function(bin_regulon, control_cells, experimental_cells, percentage_cutoff) {
+get_OddRatio <- function(bin_regulon, control_cells, experimental_cells, percentage_cutoff, regulon_modules) {
     ### initialize
     total_cell_number = bin_regulon %>% nrow
     regulon_test_results <- data.frame(matrix(ncol = 5, nrow = ncol(bin_regulon)))
@@ -95,11 +103,19 @@ get_odd_ratio <- function(bin_regulon, control_cells, experimental_cells, percen
     order <- regulon_test_results[order(regulon_test_results[, 'odd_ratio'], decreasing = TRUE), ]
     order[, 'rank'] = 1:nrow(order)
     order[, 'TFs'] = rownames(order)
-    order[, 'module'] = col_annotation[rownames(order), 'TFs']
+    order[, 'module'] = regulon_modules[rownames(order), 1]
+    
+    order$'adjusted_p-value' =  p.adjust(order$'p-value', method='fdr') # fdr correction
+    order$'-log10(adj.p-value)' = -log10(order$'adjusted_p-value')
+    order[order$'-log10(adj.p-value)' > 300, '-log10(adj.p-value)'] = 300 # set maximum -log10(adj.p-value) as 300
+    order$size = order$'-log10(adj.p-value)' # size of dot is -log10(adj.p-value)
+    order[order$'odd_ratio' == Inf, 'odd_ratio'] = 10^8 # set maximum odd ratio as 10^8
+    order$log_ratio = log10(order$odd_ratio + e) # log10 of odd ratio
+
     return(order)
 }
 
-plot_order_text_on_right <- function(order, highlihgt, highlight_cols, basal_ratio) {
+plot_OddRatio_text_on_right <- function(order, highlihgt, highlight_cols, basal_ratio) {
     p <- ggplot(order, aes(x = rank, y = log_ratio)) +
         geom_point(aes(size = size), color = 'black') +
         geom_point(data = subset(order, module == highlihgt), 
@@ -131,10 +147,11 @@ plot_order_text_on_right <- function(order, highlihgt, highlight_cols, basal_rat
         guides(size = guide_legend(override.aes = list(color = "black")))
         # scale_size_continuous(breaks = c(1, 2, 3, 4, 5)) 
     p <- p + scale_size_binned(breaks = c(0, 50, 100, 150, 200, 250, 300), range = c(0.1, 5))
+    p <- p + ylim(min(order$log_ratio) * 1.15, max(order$log_ratio) * 1.15) # to visualize better
     return(p)
 }
 
-plot_order_text_on_left <- function(order, highlihgt, highlight_cols, basal_ratio) {
+plot_OddRatio_text_on_left <- function(order, highlihgt, highlight_cols, basal_ratio) {
     p <- ggplot(order, aes(x = rank, y = log_ratio)) +
         geom_point(aes(size = size), color = 'black') +
         geom_point(data = subset(order, module == highlihgt), 
@@ -166,6 +183,7 @@ plot_order_text_on_left <- function(order, highlihgt, highlight_cols, basal_rati
         guides(size = guide_legend(override.aes = list(color = "black")))
         # scale_size_continuous(breaks = c(1, 2, 3, 4, 5)) 
     p <- p + scale_size_binned(breaks = c(0, 50, 100, 150, 200, 250, 300), range = c(0.1, 5))
+    p <- p + ylim(min(order$log_ratio) * 1.15, max(order$log_ratio) * 1.15) # to visualize better
     return(p)
 }
 ```
