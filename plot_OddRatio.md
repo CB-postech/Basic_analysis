@@ -19,7 +19,7 @@ Condition : Epithelial Lineage or Not
 
 Highlight : Epithelial-Enriched Regulon from hierarchical clustering
 
-<img src="https://github.com/user-attachments/assets/a90d259c-b6a8-4973-a27d-46969b757a97" width="700">
+<img src="https://github.com/user-attachments/assets/277b378c-6ac9-4e27-a910-35d6ca6e9b82" width="700">
 
 ### Requirements
 Requirement 1. Binarized Regulon Matrix (row : cell, column : regulon). Output of pySCENIC
