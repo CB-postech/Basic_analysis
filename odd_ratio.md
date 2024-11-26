@@ -1,31 +1,51 @@
 ## Plot OddRatio with fdr-corrected fisher exact test p-value
+### Contact
+seongju6787@postech.ac.kr
+
+If you want any toy data please send an email
+
 ### Motivation
-If binarized regulon matrix is given, how to quantify there enrichment in certain condition?
+If a binarized regulon matrix is given, how do we quantify their enrichment in a certain condition?
+
 ### Method
-1. Calculate OddRatio
-![Uploading image.png…]()
+<img src="https://github.com/user-attachments/assets/cccb133e-3a72-443e-ac24-1a26f7dfbaeb" width="400">
+
+1. Calculate OddRatio from above matrix for each regulon.
+In above example, (324/34) / (79/782)
+
+2. Do fisher-exact test for each regulon, then do fdr correction
+### Example Result 
+Condition : Epithelial Lineage or Not
+
+Highlight : Epithelial-Enriched Regulon from hierarchical clustering
+
+<img src="https://github.com/user-attachments/assets/a90d259c-b6a8-4973-a27d-46969b757a97" width="700">
 
 ### Requirements
 Requirement 1. Binarized Regulon Matrix (row : cell, column : regulon). Output of pySCENIC
 
 Requirement 2. Seurat object. It should have Condition (or Lineage, Lineage&Exercise, ... something like that) in metadata
 
-Reguirement 3. Regulon Module. Output of heirchical clustering of pHeatmap. row : regulon name, column : module, elements : module name
+Reguirement 3. Regulon Module. Output from heirchical clustering of pHeatmap. (row : regulon, column : module)
 
 Requirement 4. Color vector to highlight the regulon module
 
-### There are 3 functions in this script
-1. get_OddRatio : return odd ratio data frame (contain odd ratio & fisher-exact test p-value (fdr corrected))
-
-2. plot_OddRatio_text_on_right : plot odd ratio data frame
-
+### There are 4 functions in this script
+1. get_OddRatio : Calculate OddRatio, p-value, then return them as DataFrame
+2. plot_OddRatio_text_on_right : plot OddRatio DataFrame
 3. plot_OddRatio_text_on_left : same as 2, but text on left
+4. get_OddRatio_plot: A utility function to generate plots. It returns top 5 odd ratio TFs
 
+### Actual Script
 ```R
 library(Seurat)
 library(magrittr)
 library(ggplot2)
+library(ggrepel)
 library(data.table)
+
+# load custom function saved below
+source('odd_ratio.R')
 
 save_path <- '/home/sjcho/projects/lung_exercise/24_06_07_after_delete_con4_ex4/1.transcriptomic_difference/1.5.scenic/1.5.6.OddRatio_binarized_regulon/'
 
@@ -48,32 +68,13 @@ cols_highlight = c('Exercise-Immune' = '#00008B', 'Exercise-non-Immune' = '#8B00
 
 ### parameter setting
 condition_name = 'Condition' # or 'lineage' ...
-
 percentage_cutoff = 0 # only use when regulon is activated then 0% of total cells, so... by default, use all the regulons!
-top5_genes = list()
 
-e = 10^-15 # to avoid log10(0)
-Idents(so) = so[[condition_name]][[1]]
-for (condition in levels(Idents(so))) {
-    experimental_cells = WhichCells(so, ident = condition)
-    control_cells = setdiff(Cells(so), experimental_cells)
-
-    order <- get_OddRatio(bin_regulon, control_cells, experimental_cells, percentage_cutoff, regulon_modules)
-
-    basal_ratio = length(experimental_cells)/length(Cells(so)) # its means ratio of experimental cells over total cells
-    ## plot them separately
-    for (highlihgt in names(cols_highlight)) {
-        p <- plot_OddRatio_text_on_right(order, highlihgt, cols_highlight, basal_ratio)
-        ggsave(p, file = paste0(save_path, condition, '_RightText_', highlihgt, '.png'), width = 10, height = 5)
-
-        p <- plot_OddRatio_text_on_left(order, highlihgt, cols_highlight, basal_ratio)
-        ggsave(p, file = paste0(save_path, condition, '_LeftText_', highlihgt, '.png'), width = 10, height = 5)
-    }
-    
-    top5_genes[[condition]] = rownames(order %>% head(n = 5))
-}
+top5_genes <- get_OddRatio_plot(so, bin_regulon, condition_name, cols_highlight, percentage_cutoff, regulon_modules, save_path)
+# it took almost 1 min for 50000 cells
 ```
 
+### Functions
 ```R
 get_OddRatio <- function(bin_regulon, control_cells, experimental_cells, percentage_cutoff, regulon_modules) {
     ### initialize
@@ -196,5 +197,32 @@ plot_OddRatio_text_on_left <- function(order, highlihgt, highlight_cols, basal_r
     p <- p + ylim(min(order$log_ratio) * 1.15, max(order$log_ratio) * 1.15) # to visualize better
     return(p)
 }
+
+
+get_OddRatio_plot <- function(so, bin_regulon, condition_name, cols_highlight, percentage_cutoff, regulon_modules, save_path) {
+    e = 10^-15 # to avoid log10(0)
+    Idents(so) = so[[condition_name]][[1]]
+    top5_genes = list()
+    
+    for (condition in levels(Idents(so))) {
+        experimental_cells = WhichCells(so, ident = condition)
+        control_cells = setdiff(Cells(so), experimental_cells)
+
+        order <- get_OddRatio(bin_regulon, control_cells, experimental_cells, percentage_cutoff, regulon_modules)
+
+        basal_ratio = length(experimental_cells)/length(Cells(so)) # its means ratio of experimental cells over total cells
+        ## plot them separately
+        for (highlihgt in names(cols_highlight)) {
+            p <- plot_OddRatio_text_on_right(order, highlihgt, cols_highlight, basal_ratio)
+            ggsave(p, file = paste0(save_path, condition, '_RightText_', highlihgt, '.png'), width = 10, height = 5)
+
+            p <- plot_OddRatio_text_on_left(order, highlihgt, cols_highlight, basal_ratio)
+            ggsave(p, file = paste0(save_path, condition, '_LeftText_', highlihgt, '.png'), width = 10, height = 5)
+        }
+        
+        top5_genes[[condition]] = rownames(order %>% head(n = 5))
+    }
+    return(top5_genes)
+}
+
 ```
-![image](https://github.com/user-attachments/assets/e1186267-25a5-4607-be4b-68baebc7b517)
